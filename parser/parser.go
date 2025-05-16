@@ -3,6 +3,7 @@ package parser
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -51,4 +52,46 @@ func ParsePoETable(output string) (map[string]PoEPort, error) {
 	}
 
 	return ports, nil
+}
+
+// InterfaceCounters represents a set of counters for a single port.
+type InterfaceCounters map[string]uint64
+
+// InterfaceStats holds counters per port.
+type InterfaceStats map[string]InterfaceCounters
+
+// ParseInterfaceCounters parses the "show interface counters" output into structured data.
+func ParseInterfaceCounters(output string) (InterfaceStats, error) {
+	lines := strings.Split(output, "\n")
+	stats := make(InterfaceStats)
+	var currentPort string
+
+	keyValRegex := regexp.MustCompile(`^([\w\- /]+):\s+([\d,]+)$`)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Port:") {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				currentPort = strings.TrimSpace(parts[1])
+				stats[currentPort] = make(InterfaceCounters)
+			}
+			continue
+		}
+		if currentPort == "" {
+			continue
+		}
+
+		if matches := keyValRegex.FindStringSubmatch(line); len(matches) == 3 {
+			key := strings.TrimSpace(matches[1])
+			valStr := strings.ReplaceAll(matches[2], ",", "")
+			val, err := strconv.ParseUint(valStr, 10, 64)
+			if err != nil {
+				return nil, fmt.Errorf("invalid number for key %q: %v", key, err)
+			}
+			stats[currentPort][key] = val
+		}
+	}
+
+	return stats, nil
 }

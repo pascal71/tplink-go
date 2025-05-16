@@ -135,7 +135,7 @@ type MemoryUtilization struct {
 
 // ParseMemoryUtilization parses the "show memory-utilization" output.
 func ParseMemoryUtilization(output string) (MemoryUtilization, error) {
-	re := regexp.MustCompile(`(?m)^(\d+)\s+\|\s+(\d+)%`)
+	re := regexp.MustCompile(`(?m)^\s*(\d+)\s+\|\s+(\d+)%`)
 	matches := re.FindStringSubmatch(output)
 	if len(matches) == 3 {
 		unit, err := strconv.Atoi(matches[1])

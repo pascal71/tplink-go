@@ -95,3 +95,166 @@ func ParseInterfaceCounters(output string) (InterfaceStats, error) {
 
 	return stats, nil
 }
+
+// CPUUtilization holds CPU load for different intervals.
+type CPUUtilization struct {
+	FiveSeconds int
+	OneMinute   int
+	FiveMinutes int
+}
+
+// ParseCPUUtilization parses the "show cpu-utilization" output.
+func ParseCPUUtilization(output string) (CPUUtilization, error) {
+	var result CPUUtilization
+	re := regexp.MustCompile(`(?m)\|\s+(\d+)%\s+(\d+)%\s+(\d+)%`) // matches the row with percentages
+	matches := re.FindStringSubmatch(output)
+	if len(matches) == 4 {
+		var err error
+		result.FiveSeconds, err = strconv.Atoi(matches[1])
+		if err != nil {
+			return result, err
+		}
+		result.OneMinute, err = strconv.Atoi(matches[2])
+		if err != nil {
+			return result, err
+		}
+		result.FiveMinutes, err = strconv.Atoi(matches[3])
+		if err != nil {
+			return result, err
+		}
+		return result, nil
+	}
+	return result, fmt.Errorf("unable to parse cpu utilization")
+}
+
+// MemoryUtilization holds the memory usage percentage.
+type MemoryUtilization struct {
+	Unit  int
+	Usage int
+}
+
+// ParseMemoryUtilization parses the "show memory-utilization" output.
+func ParseMemoryUtilization(output string) (MemoryUtilization, error) {
+	re := regexp.MustCompile(`(?m)^(\d+)\s+\|\s+(\d+)%`)
+	matches := re.FindStringSubmatch(output)
+	if len(matches) == 3 {
+		unit, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return MemoryUtilization{}, err
+		}
+		usage, err := strconv.Atoi(matches[2])
+		if err != nil {
+			return MemoryUtilization{}, err
+		}
+		return MemoryUtilization{Unit: unit, Usage: usage}, nil
+	}
+	return MemoryUtilization{}, fmt.Errorf("unable to parse memory utilization")
+}
+
+// InterfaceStatus represents a single line in the "show interface status" output.
+type InterfaceStatus struct {
+	Port         string
+	Status       string
+	Speed        string
+	Duplex       string
+	FlowCtrl     string
+	ActiveMedium string
+	Description  string
+}
+
+// ParseInterfaceStatus parses the "show interface status" output.
+func ParseInterfaceStatus(output string) ([]InterfaceStatus, error) {
+	var results []InterfaceStatus
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Port") || strings.HasPrefix(line, "----") || line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) >= 6 {
+			desc := strings.Join(fields[6:], " ")
+			results = append(results, InterfaceStatus{
+				Port:         fields[0],
+				Status:       fields[1],
+				Speed:        fields[2],
+				Duplex:       fields[3],
+				FlowCtrl:     fields[4],
+				ActiveMedium: fields[5],
+				Description:  desc,
+			})
+		}
+	}
+	return results, nil
+}
+
+// MACEntry represents a MAC address table entry.
+type MACEntry struct {
+	MAC   string
+	VLAN  int
+	Port  string
+	Type  string
+	Aging string
+}
+
+// ParseMACTable parses the "show mac address-table" output.
+func ParseMACTable(output string) ([]MACEntry, error) {
+	var results []MACEntry
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "MAC") || strings.HasPrefix(line, "---") || strings.HasPrefix(line, "Total") || line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 5 {
+			vlan, err := strconv.Atoi(fields[1])
+			if err != nil {
+				continue
+			}
+			results = append(results, MACEntry{
+				MAC:   fields[0],
+				VLAN:  vlan,
+				Port:  fields[2],
+				Type:  fields[3],
+				Aging: fields[4],
+			})
+		}
+	}
+	return results, nil
+}
+
+// InterfaceConfig represents configuration details per port.
+type InterfaceConfig struct {
+	Port        string
+	State       string
+	Speed       string
+	Duplex      string
+	FlowCtrl    string
+	Description string
+}
+
+// ParseInterfaceConfig parses the "show interface configuration" output.
+func ParseInterfaceConfig(output string) ([]InterfaceConfig, error) {
+	var results []InterfaceConfig
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "Port") || strings.HasPrefix(line, "----") || line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) >= 5 {
+			desc := strings.Join(fields[5:], " ")
+			results = append(results, InterfaceConfig{
+				Port:        fields[0],
+				State:       fields[1],
+				Speed:       fields[2],
+				Duplex:      fields[3],
+				FlowCtrl:    fields[4],
+				Description: desc,
+			})
+		}
+	}
+	return results, nil
+}
